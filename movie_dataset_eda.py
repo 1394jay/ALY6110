@@ -25,6 +25,7 @@ os.environ["SPARK_HOME"] = "/content/spark-3.0.0-bin-hadoop3.2"
 # install findspark using pip
 !pip install -q findspark
 
+# set up pyspark
 import findspark
 findspark.init()
 from pyspark.sql import SparkSession
@@ -32,6 +33,7 @@ spark = SparkSession.builder.master("local[*]").getOrCreate()
 df = spark.sql("show databases")
 df.show()
 
+# upload csv files
 from google.colab import files
 files.upload()
 
@@ -41,21 +43,23 @@ occupation =spark.read.csv('occupation.csv',inferSchema=True,header='true')
 ratings =spark.read.csv('ratings.csv',inferSchema=True,header='true')
 users =spark.read.csv('users.csv',inferSchema=True,header='true')
 
+# glance to movie dataset
 movie.limit(5).show()
 movie = movie.select([c for c in movie.columns if c in {'MovieID', 'Title', 'Genres'}])
 movie.limit(5).show()
 
+# importing functions
 from pyspark.sql import functions as F
 
-#import pyspark.sql.functions as F
-#df.withColumn("check",F.col("text").rlike("yes").cast("Integer")).show()
-
+# creating boolean columns for all genres
 genra_list = ["Action","Adventure","Animation","Children's","Comedy","Crime","Documentary","Drama","Fantasy","Film-Noir","Horror","Musical","Mystery","Romance","Sci-Fi","Thriller","War","Western"]
 for genra in genra_list:
   movie = movie.withColumn(genra, F.col("Genres").rlike(genra).cast("Boolean"))
 
+# glance at updated movie dataset
 movie.limit(5).show()
 
+# top 10 genres plot using matlibplot
 from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
@@ -76,8 +80,10 @@ plt.ylabel("Genres")
 plt.xlabel("Frequency")
 plt.show()
 
+# deleting one time variables
 del genres_list,word_frequency
 
+# glance at users, occupation dataset
 users.limit(5).show()
 occupation.limit(5).show()
 users_joined = users.join(occupation,users.Occupation ==  occupation.Occupation,"leftouter")
@@ -85,6 +91,7 @@ users_joined.limit(5).show()
 
 users_joined.describe().show()
 
+# plotting occupations by count
 occupation_list = users_joined.select('Occupation_name').rdd.map(lambda x : x[0]).collect()
 
 # Assign the Counter instance 
@@ -100,8 +107,10 @@ plt.ylabel("Occupations")
 plt.xlabel("Counts")
 plt.show()
 
+# removing temperary variables
 del occupation_list,occupations,counts
 
+# Plotting age for all users
 age = users_joined.select('Age').rdd.map(lambda x : x[0]).collect()
 
 # Assign the Counter instance 
@@ -119,6 +128,7 @@ plt.show()
 
 del age,counts
 
+# plotting gender of users by count
 gender = users_joined.select('Gender').rdd.map(lambda x : x[0]).collect()
 
 # Assign the Counter instance 
@@ -134,10 +144,12 @@ plt.ylabel("Gender")
 plt.xlabel("Counts")
 plt.show()
 
+# deleting temp variables
 del gender,counts,frequency
 
 ratings.describe().show()
 
+# plotting ratings for movies by count
 rating = ratings.select('Rating').rdd.map(lambda x : x[0]).collect()
 
 # Assign the Counter instance 
@@ -155,6 +167,7 @@ plt.show()
 
 del rating,counts,frequency
 
+# joining datasets for creation of a master dataset
 master = ratings.join(users_joined,ratings.UserID ==  users_joined.UserID,"leftouter").join(movie,ratings.MovieID == movie.MovieID,"leftouter" )
 master.describe().show()
 
@@ -163,6 +176,7 @@ master.describe().show()
 
 master.limit(5).show()
 
+# plotting mostly rated movies
 movie_name = master.select('Title').rdd.map(lambda x : x[0]).collect()
 
 # Assign the Counter instance 
@@ -180,6 +194,7 @@ plt.show()
 
 del movie_name,counts,frequency
 
+# plotting top 10 occupations of people who rate movies
 occupation_rate = master.select('Occupation_name').rdd.map(lambda x : x[0]).collect()
 
 # Assign the Counter instance 
@@ -197,9 +212,11 @@ plt.show()
 
 del occupation_rate,counts,frequency
 
+# exporting master file for dashboard in tableau
 master.write.csv('movie_rating.csv')
 
 master.printSchema()
 
+# finding average rating for most rated movies.
 master.groupBy("Title").agg(F.avg("Rating").alias("Average Rating")).sort(F.avg("Rating").desc()).limit(50).show()
 
